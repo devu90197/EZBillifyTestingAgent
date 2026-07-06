@@ -5,11 +5,21 @@
  */
 export type Platform = 'web' | 'android' | 'ios' | 'api';
 
+export interface WebAuthConfig {
+  /** 'form' = drive the login UI; 'supabase-password' = get a JWT via Supabase. */
+  strategy: 'form' | 'supabase-password' | 'none';
+  /** Path to the login screen, e.g. '/login'. */
+  loginPath?: string;
+}
+
 export interface WebTarget {
   /** Base URL the web runner drives, e.g. https://ezbillify.com */
   baseUrl: string;
   /** Browsers to run against; defaults to all three engines. */
   browsers?: Array<'chromium' | 'firefox' | 'webkit'>;
+  /** Named routes for journeys, e.g. { dashboard: '/dashboard' }. */
+  routes?: Record<string, string>;
+  auth?: WebAuthConfig;
 }
 
 export interface AndroidTarget {

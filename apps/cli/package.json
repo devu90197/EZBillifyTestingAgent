@@ -16,6 +16,7 @@
     "@ezt/products": "workspace:*",
     "@ezt/runner-mobile": "workspace:*",
     "@ezt/runner-web": "workspace:*",
+    "@ezt/supabase": "workspace:*",
     "commander": "^12.1.0"
   },
   "devDependencies": {

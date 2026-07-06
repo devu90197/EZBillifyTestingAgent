@@ -13,6 +13,13 @@ export const ezbillify: Product = {
   web: {
     baseUrl: 'https://ezbillify.com',
     browsers: ['chromium', 'firefox', 'webkit'],
+    // TODO: confirm real paths against the live app / codebase.
+    auth: { strategy: 'form', loginPath: '/login' },
+    routes: {
+      dashboard: '/dashboard',
+      invoiceNew: '/invoices/new',
+      invoices: '/invoices',
+    },
   },
   mobile: {
     android: { appPackage: 'com.ezbillify.pos', appActivity: '.MainActivity' },

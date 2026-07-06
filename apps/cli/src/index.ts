@@ -5,6 +5,7 @@ import { TestingAgent } from '@ezt/core';
 import { registry } from '@ezt/products';
 import { WebRunner } from '@ezt/runner-web';
 import { MobileRunner } from '@ezt/runner-mobile';
+import { checkConnection } from '@ezt/supabase';
 
 const program = new Command();
 program
@@ -45,6 +46,17 @@ program
       console.log(`  ${p.id.padEnd(16)} ${p.name}  [${p.platforms.join(', ')}]`);
     }
     console.log('');
+  });
+
+program
+  .command('supabase-check')
+  .description('verify Supabase connectivity using .env credentials')
+  .action(async () => {
+    const { ok, detail } = await checkConnection();
+    console.log(`\n  Supabase: ${ok ? '[ok]' : '[--]'} ${detail}\n`);
+    // Unconfigured is not a failure — only a live connection error is.
+    const unconfigured = detail.includes('not set');
+    process.exit(ok || unconfigured ? 0 : 1);
   });
 
 program

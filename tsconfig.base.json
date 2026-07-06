@@ -18,6 +18,7 @@
       "@ezt/config": ["packages/config/src/index.ts"],
       "@ezt/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
       "@ezt/products": ["packages/products/src/index.ts"],
+      "@ezt/supabase": ["packages/supabase/src/index.ts"],
       "@ezt/runner-web": ["runners/web/src/index.ts"],
       "@ezt/runner-mobile": ["runners/mobile/src/index.ts"]
     }
