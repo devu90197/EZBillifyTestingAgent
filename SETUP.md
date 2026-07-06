@@ -37,10 +37,13 @@ pnpm ezt run ezbillify
 
 ## Android device (to actually run mobile tests)
 ```bash
+export APPIUM_HOME="$HOME/.appium"        # must be OUTSIDE the pnpm workspace
 adb devices                               # should list a "device"
 # start an emulator, e.g.:  emulator -avd <avd_name>
 pnpm --filter @ezt/runner-mobile run appium   # start the Appium server
 ```
+> Appium 3 + the `uiautomator2@8.1.0` driver are already installed in `~/.appium`.
+> Always export `APPIUM_HOME` (a path outside the monorepo) before running Appium.
 
 ## iOS (on a Mac only)
 ```bash

@@ -10,19 +10,18 @@ Snapshot of what the base foundation delivers today, on this machine, verified.
 | TypeScript scaffold compiles | ✅ clean | `pnpm -r typecheck` — all 7 pass |
 | Universal agent core (domain, Runner port, registry, agent) | ✅ built | `packages/core` |
 | Product-agnostic catalog (add any site/app) | ✅ built | `ezt products` lists 2 |
-| Web runner (Playwright) | ✅ **runs** | smoke test 2/2 passed vs live target |
-| Chromium browser | ✅ installed | Playwright 1.61.1 |
+| Web runner (Playwright) | ✅ **runs** | cross-browser smoke 6/6 passed vs live target |
+| Chromium + Firefox + WebKit browsers | ✅ installed | Playwright 1.61.1 |
 | `ezt` CLI (`doctor`, `products`, `run`) | ✅ works | verified |
-| Appium 2 (mobile engine) | ✅ installed | 2.19.0 |
+| Appium 3 (mobile engine) | ✅ installed | 3.5.2 (Appium 3 is GA — upgraded from the guide's Appium 2) |
+| Android UiAutomator2 driver | ✅ installed | `uiautomator2@8.1.0` in `~/.appium` |
 | Android toolchain (JDK 17, SDK, adb) | ✅ present | `ezt doctor` |
 
-## Installing / conditional ⏳
+## Conditional ⏳
 
 | Item | Status | Note |
 |---|---|---|
-| Firefox + WebKit browsers | ⏳ downloading | background install (~350 MB) |
-| Android UiAutomator2 driver | ⏳ downloading | background install |
-| Android emulator / real device | ⚠️ needed to *run* mobile | tooling is ready; attach a device (`adb devices`) |
+| Android emulator / real device | ⚠️ needed to *run* mobile | tooling is ready; attach a device (`adb devices`) then start Appium |
 | Maestro CLI | ➕ optional | flow example in `runners/mobile/maestro/` |
 
 ## Requires external tooling / host 🚫 (scaffolded, ready)
@@ -36,7 +35,7 @@ Snapshot of what the base foundation delivers today, on this machine, verified.
 
 | Surface | Native? | Runs on this Windows box now? |
 |---|---|---|
-| Website | n/a | ✅ yes (Chromium now; +Firefox/WebKit once download finishes) |
+| Website | n/a | ✅ yes — Chromium + Firefox + WebKit all verified |
 | Android app | ✅ native (UiAutomator2) | ✅ yes, once a device/emulator is attached |
 | iOS app | ✅ native (XCUITest) | 🚫 no — needs a Mac (scaffolded & ready) |
 
