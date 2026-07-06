@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { ScanSearch, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeProductAction } from '@/app/(app)/products/actions';
@@ -21,13 +21,25 @@ export function AnalyzePanel({
   productId,
   baseUrl,
   initial,
+  autoRun = false,
 }: {
   productId: string;
   baseUrl: string;
   initial: AnalyzeResult | null;
+  autoRun?: boolean;
 }) {
   const [result, setResult] = useState<AnalyzeResult | null>(initial);
   const [pending, startTransition] = useTransition();
+  const started = useRef(false);
+
+  useEffect(() => {
+    // Auto-analyze a freshly-added product (no prior analysis) — once.
+    if (autoRun && !initial && !started.current) {
+      started.current = true;
+      runAnalyze();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
 
   function runAnalyze() {
     startTransition(async () => {

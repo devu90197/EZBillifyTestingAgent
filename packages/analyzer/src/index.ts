@@ -25,6 +25,13 @@ export async function analyzeProduct(
 
 export { crawlSite } from './crawler';
 export { detectLoginForm } from './login-detector';
+export { runAuthenticatedChecks } from './auth-runner';
+export type {
+  LoginDescriptor,
+  Credentials,
+  AuthCheck,
+  AuthRunResult,
+} from './auth-runner';
 export type {
   AnalyzeOptions,
   AnalyzeResult,

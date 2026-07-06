@@ -6,7 +6,8 @@ import { registry } from '@ezt/products';
 import { WebRunner } from '@ezt/runner-web';
 import { MobileRunner } from '@ezt/runner-mobile';
 import { checkConnection, ensureUser } from '@ezt/supabase';
-import { analyzeProduct } from '@ezt/analyzer';
+import { analyzeProduct, runAuthenticatedChecks } from '@ezt/analyzer';
+import type { LoginDescriptor, Credentials } from '@ezt/analyzer';
 
 const program = new Command();
 program
@@ -108,6 +109,26 @@ program
     }
     for (const n of r.login.notes) console.log(`  note: ${n}`);
     console.log('');
+  });
+
+program
+  .command('run-auth')
+  .description('authenticated deep-crawl + checks; reads JSON config from stdin (creds never on argv)')
+  .action(async () => {
+    const chunks: Buffer[] = [];
+    for await (const c of process.stdin) chunks.push(c as Buffer);
+    const cfg = JSON.parse(Buffer.concat(chunks).toString()) as {
+      baseUrl: string;
+      login: LoginDescriptor;
+      credentials: Credentials;
+      maxPages?: number;
+      maxDepth?: number;
+    };
+    const result = await runAuthenticatedChecks(cfg.baseUrl, cfg.login, cfg.credentials, {
+      maxPages: cfg.maxPages ?? 15,
+      maxDepth: cfg.maxDepth ?? 1,
+    });
+    process.stdout.write(JSON.stringify(result));
   });
 
 program

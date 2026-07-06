@@ -32,3 +32,49 @@ export interface AnalyzeResult {
     notes: string[];
   };
 }
+
+export interface ProductCredential {
+  id: string;
+  label: string;
+  identifier_type: string;
+  identifier: string;
+  created_at: string;
+}
+
+export interface SiteAnalysisRow {
+  id: string;
+  created_at: string;
+  login_scheme: string | null;
+  login_url: string | null;
+  pages_crawled: number | null;
+}
+
+export interface AuthCheck {
+  url: string;
+  status: number;
+  title: string;
+  consoleErrors: number;
+  ok: boolean;
+}
+
+export interface AuthRunResult {
+  loginAttempted: boolean;
+  loginSuccess: boolean;
+  detail: string;
+  startUrl: string;
+  loginUrl?: string;
+  pagesChecked: number;
+  passed: number;
+  failed: number;
+  checks: AuthCheck[];
+  startedAt: string;
+  finishedAt: string;
+}
+
+export interface TestRunRow {
+  id: string;
+  created_at: string;
+  kind: string;
+  status: string;
+  summary: AuthRunResult | null;
+}
