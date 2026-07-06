@@ -19,7 +19,12 @@ export async function checkConnection(): Promise<{ ok: boolean; detail: string }
     return { ok: false, detail: 'SUPABASE_URL not set in .env' };
   }
   try {
-    const res = await fetch(`${cfg.SUPABASE_URL}/auth/v1/health`);
+    const headers: Record<string, string> = {};
+    if (cfg.SUPABASE_ANON_KEY) {
+      headers.apikey = cfg.SUPABASE_ANON_KEY;
+      headers.Authorization = `Bearer ${cfg.SUPABASE_ANON_KEY}`;
+    }
+    const res = await fetch(`${cfg.SUPABASE_URL}/auth/v1/health`, { headers });
     return { ok: res.ok, detail: `GET /auth/v1/health -> ${res.status}` };
   } catch (e) {
     return { ok: false, detail: e instanceof Error ? e.message : String(e) };

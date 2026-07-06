@@ -1,7 +1,23 @@
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import * as dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config();
+/** Walk up from cwd to find the monorepo-root .env, so config works from any package. */
+function findEnvPath(start: string = process.cwd()): string | undefined {
+  let dir = start;
+  for (let i = 0; i < 8; i++) {
+    const candidate = join(dir, '.env');
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
+const envPath = findEnvPath();
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 /**
  * Layered, schema-validated config. Precedence: process env (sourced from .env

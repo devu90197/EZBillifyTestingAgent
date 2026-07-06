@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ezt/analyzer": "workspace:*",
     "@ezt/config": "workspace:*",
     "@ezt/core": "workspace:*",
     "@ezt/products": "workspace:*",

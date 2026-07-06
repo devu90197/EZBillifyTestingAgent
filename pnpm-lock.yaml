@@ -32,6 +32,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@ezt/analyzer':
+        specifier: workspace:*
+        version: link:../../packages/analyzer
       '@ezt/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -60,6 +63,19 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/analyzer:
+    dependencies:
+      playwright:
+        specifier: ^1.50.0
+        version: 1.61.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

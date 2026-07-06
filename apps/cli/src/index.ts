@@ -6,6 +6,7 @@ import { registry } from '@ezt/products';
 import { WebRunner } from '@ezt/runner-web';
 import { MobileRunner } from '@ezt/runner-mobile';
 import { checkConnection } from '@ezt/supabase';
+import { analyzeProduct } from '@ezt/analyzer';
 
 const program = new Command();
 program
@@ -57,6 +58,43 @@ program
     // Unconfigured is not a failure — only a live connection error is.
     const unconfigured = detail.includes('not set');
     process.exit(ok || unconfigured ? 0 : 1);
+  });
+
+program
+  .command('analyze')
+  .argument('<url>', 'product URL to analyze, e.g. https://ezbillify.com')
+  .option('--max-pages <n>', 'max pages to crawl', '25')
+  .option('--max-depth <n>', 'max crawl depth', '2')
+  .option('--json', 'output raw JSON')
+  .description('crawl a product and auto-detect its login (read-only, no creds)')
+  .action(async (url: string, opts: { maxPages: string; maxDepth: string; json?: boolean }) => {
+    console.log(`\n  Analyzing ${url}  (read-only crawl + login detection)...\n`);
+    const r = await analyzeProduct(url, {
+      maxPages: Number(opts.maxPages),
+      maxDepth: Number(opts.maxDepth),
+    });
+    if (opts.json) {
+      console.log(JSON.stringify(r, null, 2));
+      return;
+    }
+    console.log(`  Origin          ${r.origin}`);
+    console.log(`  Pages crawled   ${r.crawl.pagesCrawled}`);
+    console.log('  Top pages:');
+    for (const p of r.crawl.pages.slice(0, 10)) {
+      const title = p.title ? ` · ${p.title.slice(0, 42)}` : '';
+      console.log(`    [${String(p.status).padStart(3)}] ${p.url}${title}`);
+    }
+    console.log(`\n  Login detected  ${r.login.found ? 'YES' : 'no'}`);
+    if (r.login.found) {
+      console.log(`  Login URL       ${r.login.loginUrl}`);
+      console.log(`  Login scheme    ${r.login.scheme}`);
+      for (const f of r.login.fields) {
+        const label = f.label ? `  (${f.label.slice(0, 30)})` : '';
+        console.log(`    - ${f.role.padEnd(10)} ${f.selector}${label}`);
+      }
+    }
+    for (const n of r.login.notes) console.log(`  note: ${n}`);
+    console.log('');
   });
 
 program
