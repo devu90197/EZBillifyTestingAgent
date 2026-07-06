@@ -1,0 +1,9 @@
+# Maestro flow example (declarative, flake-resistant). Run with:
+#   maestro test runners/mobile/maestro/android-smoke.yaml
+# Requires the Maestro CLI + an attached Android device/emulator with the app.
+appId: com.ezbillify.pos
+---
+- launchApp
+- assertVisible:
+    text: ".*"      # replace with a real element once the app is available
+- takeScreenshot: android-launch

@@ -1,0 +1,35 @@
+{
+  "name": "ezt-universal-testing-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EZT — a universal, product-agnostic automated testing agent. Register any website or native app (web / Android / iOS) and test it automatically, no human in the loop. First product under test: EzBillify (https://ezbillify.com).",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "type": "module",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "doctor": "pnpm --filter @ezt/cli exec tsx src/index.ts doctor",
+    "products": "pnpm --filter @ezt/cli exec tsx src/index.ts products",
+    "ezt": "pnpm --filter @ezt/cli exec tsx src/index.ts",
+    "test:web": "pnpm --filter @ezt/runner-web run test",
+    "browsers:install": "pnpm --filter @ezt/runner-web exec playwright install",
+    "appium:drivers": "pnpm --filter @ezt/runner-mobile exec appium driver install uiautomator2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "appium", "sharp"]
+  }
+}

@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build & caches
+dist/
+.turbo/
+*.tsbuildinfo
+
+# test output & artifacts
+artifacts/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# appium / mobile
+.appium/
+
+# logs & os
+*.log
+.DS_Store
+Thumbs.db

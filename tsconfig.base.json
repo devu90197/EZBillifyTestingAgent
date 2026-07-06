@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ezt/core": ["packages/core/src/index.ts"],
+      "@ezt/config": ["packages/config/src/index.ts"],
+      "@ezt/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
+      "@ezt/products": ["packages/products/src/index.ts"],
+      "@ezt/runner-web": ["runners/web/src/index.ts"],
+      "@ezt/runner-mobile": ["runners/mobile/src/index.ts"]
+    }
+  }
+}
