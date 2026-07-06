@@ -5,7 +5,7 @@ import { TestingAgent } from '@ezt/core';
 import { registry } from '@ezt/products';
 import { WebRunner } from '@ezt/runner-web';
 import { MobileRunner } from '@ezt/runner-mobile';
-import { checkConnection } from '@ezt/supabase';
+import { checkConnection, ensureUser } from '@ezt/supabase';
 import { analyzeProduct } from '@ezt/analyzer';
 
 const program = new Command();
@@ -50,6 +50,18 @@ program
   });
 
 program
+  .command('seed-admin')
+  .description('create the admin platform user (admin@ezbillify.com)')
+  .action(async () => {
+    const r = await ensureUser('admin@ezbillify.com', 'admin123');
+    console.log(
+      r.created
+        ? `\n  created admin@ezbillify.com (${r.id})\n`
+        : '\n  admin@ezbillify.com already exists\n',
+    );
+  });
+
+program
   .command('supabase-check')
   .description('verify Supabase connectivity using .env credentials')
   .action(async () => {
@@ -68,13 +80,14 @@ program
   .option('--json', 'output raw JSON')
   .description('crawl a product and auto-detect its login (read-only, no creds)')
   .action(async (url: string, opts: { maxPages: string; maxDepth: string; json?: boolean }) => {
-    console.log(`\n  Analyzing ${url}  (read-only crawl + login detection)...\n`);
+    if (!opts.json) console.log(`\n  Analyzing ${url}  (read-only crawl + login detection)...\n`);
     const r = await analyzeProduct(url, {
       maxPages: Number(opts.maxPages),
       maxDepth: Number(opts.maxDepth),
     });
     if (opts.json) {
-      console.log(JSON.stringify(r, null, 2));
+      // machine-readable ONLY (consumed by the dashboard) — no banner.
+      process.stdout.write(JSON.stringify(r));
       return;
     }
     console.log(`  Origin          ${r.origin}`);
