@@ -9,7 +9,11 @@ const CANDIDATE_PATHS = [
   '/account/login',
   '/users/sign_in',
   '/session/new',
+  '/app/login',
 ];
+
+const LOGIN_URL_RE = /(login|signin|sign-in|sign_in|\/auth|sessions?\/new|account\/login)/i;
+const LOGIN_WORDS_RE = /sign ?in|log ?in|\blogin\b/i;
 
 interface RawInput {
   type: string;
@@ -26,17 +30,20 @@ interface RawForm {
   submitId: string;
   submitName: string;
   submitLabel: string;
+  looksLikeLogin: boolean;
 }
 
 /**
- * Detect how a product's login works by analyzing the LIVE site: find the login
- * page, inspect its form, and classify the scheme (email / username / phone +
- * password, or OTP). Returns resilient selectors the runner can drive later.
+ * Detect how a product's login works from the LIVE site. Robust to JS-rendered
+ * forms (waits for hydration) and multi-step / identifier-first flows: it
+ * identifies the login page by URL + title/wording even when a password field
+ * isn't present on first load, and reports resilient selectors + the scheme.
  */
 export async function detectLoginForm(
   startUrl: string,
   opts: AnalyzeOptions = {},
   browser?: Browser,
+  discovered: { url: string; title: string }[] = [],
 ): Promise<LoginDetection> {
   const timeoutMs = opts.timeoutMs ?? 15_000;
   const origin = new URL(startUrl).origin;
@@ -47,9 +54,25 @@ export async function detectLoginForm(
   const notes: string[] = [];
 
   try {
-    const candidates = new Set<string>();
+    const candidates: string[] = [];
+    const add = (u: string) => {
+      if (!candidates.includes(u)) candidates.push(u);
+    };
+
+    // 1) Discovered pages whose URL or title look like a login (highest priority).
+    for (const d of discovered) {
+      if (LOGIN_URL_RE.test(d.url) || LOGIN_WORDS_RE.test(d.title)) {
+        try {
+          if (new URL(d.url).origin === origin) add(d.url);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    // 2) Login-ish links on the homepage (wait for JS nav to render).
     try {
-      await page.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+      await page.goto(startUrl, { waitUntil: 'networkidle', timeout: timeoutMs });
       const links = await page.$$eval('a[href]', (as) =>
         as
           .filter((a) =>
@@ -61,34 +84,62 @@ export async function detectLoginForm(
       );
       for (const l of links) {
         try {
-          if (new URL(l).origin === origin) candidates.add(l);
+          if (new URL(l).origin === origin) add(l);
         } catch {
           /* ignore */
         }
       }
     } catch (e) {
-      notes.push(`homepage load failed: ${e instanceof Error ? e.message : String(e)}`);
+      notes.push(`homepage load: ${e instanceof Error ? e.message : String(e)}`);
     }
-    for (const p of CANDIDATE_PATHS) candidates.add(origin + p);
 
-    for (const url of [...candidates].slice(0, 14)) {
+    // 3) Common login paths.
+    for (const p of CANDIDATE_PATHS) add(origin + p);
+
+    let weak: LoginDetection | null = null;
+
+    for (const url of candidates.slice(0, 16)) {
       let reached = false;
       try {
-        const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+        const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: timeoutMs });
         if (!resp || resp.status() >= 400) continue;
         reached = true;
-        if ((await page.locator('input[type="password"]').count()) === 0) continue;
-        return { ...(await extractLogin(page, url)), notes: [...notes] };
+        // Give a JS-rendered password field time to appear.
+        await page
+          .locator('input[type="password"]')
+          .first()
+          .waitFor({ state: 'attached', timeout: 4000 })
+          .catch(() => {});
+
+        const detection = await extractLogin(page, url);
+        if (detection.found) {
+          return { ...detection, notes: [...notes, ...detection.notes] };
+        }
+        // No password field, but this looks like a login page (URL or wording)?
+        const isLoginPage = LOGIN_URL_RE.test(url) || detection.looksLikeLogin;
+        if (isLoginPage && !weak) {
+          weak = {
+            found: true,
+            loginUrl: url,
+            scheme: detection.scheme === 'unknown' ? 'identifier-first' : detection.scheme,
+            fields: detection.fields,
+            notes: [
+              'No password field on the login page at load — likely a multi-step (enter identifier, then password) or JS-rendered form. The authenticated run handles both.',
+            ],
+          };
+        }
       } catch (e) {
         if (reached) notes.push(`candidate ${url}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
+    if (weak) return { ...weak, notes: [...notes, ...weak.notes] };
+
     return {
       found: false,
       scheme: 'unknown',
       fields: [],
-      notes: [...notes, 'no login form with a password field found at homepage links or common paths'],
+      notes: [...notes, 'No login page found at discovered URLs, homepage links, or common paths.'],
     };
   } finally {
     await ctx.close();
@@ -96,10 +147,13 @@ export async function detectLoginForm(
   }
 }
 
-async function extractLogin(page: Page, loginUrl: string): Promise<LoginDetection> {
-  // IMPORTANT: the evaluate callback must contain NO named helper functions —
-  // esbuild/tsx injects a `__name` helper that is undefined in the browser.
-  // We pull raw attributes here and compute selectors/scheme in Node below.
+// Internal detection carries an extra `looksLikeLogin` signal + scheme even when
+// no password field is present (for multi-step flows).
+type InternalDetection = LoginDetection & { looksLikeLogin: boolean };
+
+async function extractLogin(page: Page, loginUrl: string): Promise<InternalDetection> {
+  // The evaluate callback must contain NO named helper functions (esbuild injects
+  // a `__name` helper that is undefined in the browser).
   const raw: RawForm = await page.evaluate(() => {
     const pw = document.querySelector('input[type="password"]');
     const form = (pw && pw.closest('form')) || document.body;
@@ -125,6 +179,11 @@ async function extractLogin(page: Page, loginUrl: string): Promise<LoginDetectio
       };
     });
     const btn = form.querySelector('button[type="submit"], input[type="submit"], button');
+    const title = (document.title || '').toLowerCase();
+    const headings = Array.from(document.querySelectorAll('h1, h2, button, [type="submit"]'))
+      .map((e) => e.textContent || '')
+      .join(' ')
+      .toLowerCase();
     return {
       inputs,
       submitTag: btn ? btn.tagName.toLowerCase() : '',
@@ -132,6 +191,7 @@ async function extractLogin(page: Page, loginUrl: string): Promise<LoginDetectio
       submitId: btn ? btn.getAttribute('id') || '' : '',
       submitName: btn ? btn.getAttribute('name') || '' : '',
       submitLabel: btn ? (btn.textContent || '').trim() || btn.getAttribute('value') || '' : '',
+      looksLikeLogin: /sign in|log ?in|login|continue|welcome back/.test(title + ' ' + headings),
     };
   });
 
@@ -149,7 +209,7 @@ async function extractLogin(page: Page, loginUrl: string): Promise<LoginDetectio
     (i) => i.type !== 'password' && i.type !== 'hidden' && /user|login|account/.test(text(i)),
   );
   const firstText = raw.inputs.find(
-    (i) => i.type !== 'password' && i.type !== 'hidden' && i.type !== 'checkbox',
+    (i) => i.type !== 'password' && i.type !== 'hidden' && i.type !== 'checkbox' && i.type !== 'submit',
   );
 
   const fields: LoginField[] = [];
@@ -182,6 +242,14 @@ async function extractLogin(page: Page, loginUrl: string): Promise<LoginDetectio
   else if (pwInput && phoneInput) scheme = 'phone-password';
   else if (pwInput && (userInput || firstText)) scheme = 'username-password';
   else if (otpInput && !pwInput) scheme = 'otp';
+  else if (!pwInput && identifier && raw.submitTag) scheme = 'identifier-first';
 
-  return { found: !!pwInput || !!otpInput, loginUrl, scheme, fields, notes: [] };
+  return {
+    found: !!pwInput || !!otpInput,
+    loginUrl,
+    scheme,
+    fields,
+    notes: [],
+    looksLikeLogin: raw.looksLikeLogin,
+  };
 }

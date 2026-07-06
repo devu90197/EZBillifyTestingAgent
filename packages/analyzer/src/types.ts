@@ -18,6 +18,7 @@ export type LoginScheme =
   | 'email-password'
   | 'username-password'
   | 'phone-password'
+  | 'identifier-first'
   | 'otp'
   | 'unknown';
 

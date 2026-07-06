@@ -78,11 +78,15 @@ export function AuthTestsPanel({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">{result.detail}</p>
+            <p className="text-sm font-medium">
+              Pages discovered after login{' '}
+              <span className="text-muted-foreground">({result.pagesChecked})</span>
+            </p>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Status</TableHead>
-                  <TableHead>URL</TableHead>
+                  <TableHead>URL (behind auth)</TableHead>
                   <TableHead className="w-24 text-right">Console errors</TableHead>
                 </TableRow>
               </TableHeader>

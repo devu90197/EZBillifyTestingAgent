@@ -16,7 +16,12 @@ export async function analyzeProduct(
   const browser = await chromium.launch();
   try {
     const crawl = await crawlSite(startUrl, opts, browser);
-    const login = await detectLoginForm(startUrl, opts, browser);
+    const login = await detectLoginForm(
+      startUrl,
+      opts,
+      browser,
+      crawl.pages.map((p) => ({ url: p.url, title: p.title })),
+    );
     return { origin, startUrl, analyzedAt: new Date().toISOString(), crawl, login };
   } finally {
     await browser.close();

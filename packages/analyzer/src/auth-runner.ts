@@ -1,4 +1,4 @@
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import type { AnalyzeOptions, LoginField } from './types';
 
 export interface LoginDescriptor {
@@ -27,6 +27,7 @@ export interface AuthRunResult {
   detail: string;
   startUrl: string;
   loginUrl?: string;
+  landingUrl?: string;
   pagesChecked: number;
   passed: number;
   failed: number;
@@ -51,10 +52,16 @@ function normalize(raw: string): string | null {
   }
 }
 
+async function fillFirst(page: Page, sel: string | undefined, fallback: string, value: string) {
+  const loc = sel && (await page.locator(sel).count()) > 0 ? page.locator(sel).first() : page.locator(fallback).first();
+  await loc.fill(value).catch(() => {});
+}
+
 /**
  * Log in with the detected form + supplied credentials, then crawl behind auth
- * and run generic health checks (HTTP status + console errors per page). This is
- * the autonomous authenticated testing loop — it needs no per-product code.
+ * starting from the POST-LOGIN landing page to discover the product's internal
+ * URLs, checking HTTP status + console errors per page. Handles single-step and
+ * multi-step / identifier-first (enter identifier, then password) flows.
  */
 export async function runAuthenticatedChecks(
   baseUrl: string,
@@ -63,10 +70,9 @@ export async function runAuthenticatedChecks(
   opts: AnalyzeOptions = {},
   browser?: Browser,
 ): Promise<AuthRunResult> {
-  const maxPages = opts.maxPages ?? 15;
-  const maxDepth = opts.maxDepth ?? 1;
+  const maxPages = opts.maxPages ?? 20;
+  const maxDepth = opts.maxDepth ?? 2;
   const timeoutMs = opts.timeoutMs ?? 20_000;
-  const origin = new URL(baseUrl).origin;
   const startedAt = new Date().toISOString();
 
   const ownBrowser = !browser;
@@ -85,28 +91,58 @@ export async function runAuthenticatedChecks(
   const submitSel = selFor(login.fields, 'submit');
   let loginSuccess = false;
   let detail = '';
-  const loginAttempted = !!(idSel && pwSel);
+  let landingUrl = baseUrl;
+  const loginAttempted = true;
 
   try {
-    await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
-    if (loginAttempted) {
-      const before = page.url();
-      await page.fill(idSel!, creds.identifier).catch(() => {});
-      await page.fill(pwSel!, creds.secret).catch(() => {});
-      if (submitSel) await page.click(submitSel).catch(() => {});
+    await page.goto(loginUrl, { waitUntil: 'networkidle', timeout: timeoutMs });
+    const before = page.url();
+
+    // Step 1: identifier
+    await page.locator(idSel ?? 'input:not([type="hidden"]):not([type="password"])').first().waitFor({ timeout: 6000 }).catch(() => {});
+    await fillFirst(page, idSel, 'input:not([type="hidden"]):not([type="password"])', creds.identifier);
+
+    // Step 2: password — if not present yet, advance the multi-step form.
+    let hasPw = (await page.locator('input[type="password"]').count()) > 0;
+    if (!hasPw) {
+      if (submitSel && (await page.locator(submitSel).count()) > 0) await page.locator(submitSel).first().click().catch(() => {});
       else await page.keyboard.press('Enter').catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: timeoutMs }).catch(() => {});
-      await page.waitForTimeout(800);
-      const after = page.url();
-      const stillHasPassword = (await page.locator('input[type="password"]').count()) > 0;
-      loginSuccess = (after !== before && !after.includes(new URL(loginUrl).pathname)) || !stillHasPassword;
-      detail = loginSuccess ? `signed in (now at ${after})` : `login uncertain (still at ${after})`;
-    } else {
-      detail = 'login field selectors incomplete — skipped login';
+      await page.locator('input[type="password"]').first().waitFor({ timeout: 6000 }).catch(() => {});
+      hasPw = (await page.locator('input[type="password"]').count()) > 0;
     }
+    if (hasPw) await fillFirst(page, pwSel, 'input[type="password"]', creds.secret);
 
+    // Step 3: submit
+    const submitBtn =
+      submitSel && (await page.locator(submitSel).count()) > 0
+        ? page.locator(submitSel).first()
+        : page.getByRole('button', { name: /sign ?in|log ?in|login|continue|submit/i }).first();
+    if ((await submitBtn.count()) > 0) await submitBtn.click().catch(() => {});
+    else await page.keyboard.press('Enter').catch(() => {});
+
+    await page.waitForLoadState('networkidle', { timeout: timeoutMs }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    landingUrl = page.url();
+    const stillHasPassword = (await page.locator('input[type="password"]').count()) > 0;
+    const loginPath = (() => {
+      try {
+        return new URL(loginUrl).pathname;
+      } catch {
+        return '/login';
+      }
+    })();
+    loginSuccess = (landingUrl !== before && !landingUrl.includes(loginPath)) || !stillHasPassword;
+    detail = loginSuccess
+      ? `signed in — landed on ${landingUrl}`
+      : `login uncertain — still at ${landingUrl}`;
+
+    // Step 4: crawl behind auth FROM the landing page (discovers product URLs).
+    const crawlOrigin = new URL(landingUrl).origin;
+    const start = normalize(landingUrl) ?? landingUrl;
     const visited = new Set<string>();
-    const queue: Array<{ url: string; depth: number }> = [{ url: normalize(baseUrl) ?? baseUrl, depth: 0 }];
+    const queue: Array<{ url: string; depth: number }> = [{ url: start, depth: 0 }];
     while (queue.length > 0 && checks.length < maxPages) {
       const { url, depth } = queue.shift()!;
       if (visited.has(url)) continue;
@@ -122,7 +158,7 @@ export async function runAuthenticatedChecks(
           const hrefs = await page.$$eval('a[href]', (as) => as.map((a) => (a as HTMLAnchorElement).href));
           for (const h of hrefs) {
             const n = normalize(h);
-            if (n && new URL(n).origin === origin && !visited.has(n)) queue.push({ url: n, depth: depth + 1 });
+            if (n && new URL(n).origin === crawlOrigin && !visited.has(n)) queue.push({ url: n, depth: depth + 1 });
           }
         }
       } catch {
@@ -141,6 +177,7 @@ export async function runAuthenticatedChecks(
     detail,
     startUrl: baseUrl,
     loginUrl,
+    landingUrl,
     pagesChecked: checks.length,
     passed,
     failed: checks.length - passed,

@@ -63,6 +63,7 @@ export interface AuthRunResult {
   detail: string;
   startUrl: string;
   loginUrl?: string;
+  landingUrl?: string;
   pagesChecked: number;
   passed: number;
   failed: number;
